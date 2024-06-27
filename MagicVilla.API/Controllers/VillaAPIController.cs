@@ -1,4 +1,5 @@
-﻿using MagicVilla.API.Data;
+﻿using AutoMapper;
+using MagicVilla.API.Data;
 using MagicVilla.API.Models;
 using MagicVilla.API.Models.DTO;
 using Microsoft.AspNetCore.Http;
@@ -13,11 +14,13 @@ namespace MagicVilla.API.Controllers
     {
         private readonly ILogger<VillaAPIController> _logger;
         private readonly VillaDBContext _db;
+        private readonly IMapper _mapper;
 
-        public VillaAPIController(ILogger<VillaAPIController> logger, VillaDBContext db)
+        public VillaAPIController(ILogger<VillaAPIController> logger, VillaDBContext db, IMapper mapper)
         {
             this._logger = logger;
             this._db = db;
+            this._mapper = mapper;
         }
 
 
@@ -25,7 +28,9 @@ namespace MagicVilla.API.Controllers
         public IActionResult GetVillas()
         {
             this._logger.LogInformation("GetVillas() invoked.");
-            return Ok(this._db.Villas.ToList());
+            var villas = this._db.Villas.ToList();
+            var villaDto = this._mapper.Map<IEnumerable<VillaDTO>>(villas);
+            return Ok(villaDto);
         }
 
         [HttpGet("{id}", Name = "GetVilla")]
@@ -41,13 +46,14 @@ namespace MagicVilla.API.Controllers
             {
                 var errorResponse = new
                 {
-                    StatusCode = StatusCodes.Status404NotFound,                   
+                    StatusCode = StatusCodes.Status404NotFound,
                     Error = "Villa not found",
                     VillaId = id
                 };
                 return NotFound(errorResponse);
             }
-            return Ok(result);
+            var villaDto = _mapper.Map<VillaDTO>(result);
+            return Ok(villaDto);
         }
 
         [HttpPost]
@@ -60,10 +66,13 @@ namespace MagicVilla.API.Controllers
                 return BadRequest(villaCreateDTO);
             }
 
-            var model = new Villa() { Name = villaCreateDTO.Name, Amenity = villaCreateDTO.Amenity, Details = villaCreateDTO.Details, ImageUrl = villaCreateDTO.ImageUrl, Occupancy = villaCreateDTO.Occupancy, Rate = villaCreateDTO.Rate, Sqft = villaCreateDTO.Sqft, CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now };
+
+            //var model = new Villa() { Name = villaCreateDTO.Name, Amenity = villaCreateDTO.Amenity, Details = villaCreateDTO.Details, ImageUrl = villaCreateDTO.ImageUrl, Occupancy = villaCreateDTO.Occupancy, Rate = villaCreateDTO.Rate, Sqft = villaCreateDTO.Sqft, CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now };
 
 
-            var result = this._db.Villas.Add(model);
+            var model = _mapper.Map<Villa>(villaCreateDTO);
+
+            this._db.Villas.Add(model);
             this._db.SaveChanges();
             return CreatedAtRoute("GetVilla", new { id = model.Id }, model);
         }
@@ -83,28 +92,35 @@ namespace MagicVilla.API.Controllers
         }
 
         [HttpPut]
-        public IActionResult UpdateVilla(int id, [FromBody]VillaUpdateDTO villaUpdateDTO)
+        public IActionResult UpdateVilla(int id, [FromBody] VillaUpdateDTO villaUpdateDTO)
         {
             var existingVilla = this._db.Villas.Find(id);
             if (existingVilla == null)
             {
                 return NotFound();
             }
-            // Update the existing villa's properties
-            existingVilla.Name = villaUpdateDTO.Name;
-            existingVilla.Amenity = villaUpdateDTO.Amenity;
-            existingVilla.Details = villaUpdateDTO.Details;
-            existingVilla.ImageUrl = villaUpdateDTO.ImageUrl;
-            existingVilla.Occupancy = villaUpdateDTO.Occupancy;
-            existingVilla.Rate = villaUpdateDTO.Rate;
-            existingVilla.Sqft = villaUpdateDTO.Sqft;
+
+            this._mapper.Map(villaUpdateDTO, existingVilla);
+
+            // Update the timestamp
             existingVilla.UpdatedDate = DateTime.Now;
+
+            // Update the existing villa's properties
+            //existingVilla.Name = villaUpdateDTO.Name;
+            //existingVilla.Amenity = villaUpdateDTO.Amenity;
+            //existingVilla.Details = villaUpdateDTO.Details;
+            //existingVilla.ImageUrl = villaUpdateDTO.ImageUrl;
+            //existingVilla.Occupancy = villaUpdateDTO.Occupancy;
+            //existingVilla.Rate = villaUpdateDTO.Rate;
+            //existingVilla.Sqft = villaUpdateDTO.Sqft;
+            //existingVilla.UpdatedDate = DateTime.Now;
 
             // Save changes to the database
             this._db.Villas.Update(existingVilla);
             this._db.SaveChanges();
 
-            return Ok(existingVilla);
+            var villaDto = _mapper.Map<VillaDTO>(existingVilla);
+            return Ok(villaDto);
         }
     }
 }
