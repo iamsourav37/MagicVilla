@@ -12,10 +12,12 @@ namespace MagicVilla.API.Controllers
     public class VillaAPIController : ControllerBase
     {
         private readonly ILogger<VillaAPIController> _logger;
+        private readonly VillaDBContext _db;
 
-        public VillaAPIController(ILogger<VillaAPIController> logger)
+        public VillaAPIController(ILogger<VillaAPIController> logger, VillaDBContext db)
         {
             this._logger = logger;
+            this._db = db;
         }
 
 
@@ -23,10 +25,10 @@ namespace MagicVilla.API.Controllers
         public IActionResult GetVillas()
         {
             this._logger.LogInformation("GetVillas() invoked.");
-            return Ok(VillaStore.VillaList);
+            return Ok(this._db.Villas.ToList());
         }
 
-        [HttpGet("{id}", Name ="GetVilla")]
+        [HttpGet("{id}", Name = "GetVilla")]
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
@@ -34,7 +36,7 @@ namespace MagicVilla.API.Controllers
         {
             this._logger.LogInformation($"GetVilla() invoked, with id: {id}");
 
-            var result = VillaStore.VillaList.Where(e => e.Id == id).FirstOrDefault();
+            var result = this._db.Villas.Where(e => e.Id == id).FirstOrDefault();
             if (result is null)
             {
                 return NotFound();
@@ -57,9 +59,9 @@ namespace MagicVilla.API.Controllers
                 this._logger.LogError("the id is provided is greater than 0.");
                 return StatusCode(StatusCodes.Status500InternalServerError);
             }
-            villaDTO.Id = VillaStore.VillaList.OrderByDescending(e => e.Id).First().Id + 1;
-            VillaStore.VillaList.Add(new VillaDTO() { Id = villaDTO.Id, Name = villaDTO.Name });
-            return CreatedAtRoute("GetVilla", new { id=villaDTO.Id }, villaDTO);
+            var result = this._db.Villas.Add(new Villa() { Name = villaDTO.Name, Amenity = villaDTO.Amenity, Details = villaDTO.Details, ImageUrl = villaDTO.ImageUrl, Occupancy = villaDTO.Occupancy, Rate = villaDTO.Rate, Sqft = villaDTO.Sqft, CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now });
+            this._db.SaveChanges();
+            return CreatedAtRoute("GetVilla", new { id = villaDTO.Id }, villaDTO);
         }
     }
 }
