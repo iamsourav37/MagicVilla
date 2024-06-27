@@ -1,5 +1,11 @@
+using Serilog;
+
 var builder = WebApplication.CreateBuilder(args);
 
+
+// Logger setup
+Log.Logger = new LoggerConfiguration().MinimumLevel.Error().WriteTo.File("logs/VillaApiProjectLogs.txt", rollingInterval: RollingInterval.Day).CreateLogger();
+builder.Host.UseSerilog();
 // Add services to the container.
 
 builder.Services.AddControllers();
