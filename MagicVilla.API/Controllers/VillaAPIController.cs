@@ -39,29 +39,72 @@ namespace MagicVilla.API.Controllers
             var result = this._db.Villas.Where(e => e.Id == id).FirstOrDefault();
             if (result is null)
             {
-                return NotFound();
+                var errorResponse = new
+                {
+                    StatusCode = StatusCodes.Status404NotFound,                   
+                    Error = "Villa not found",
+                    VillaId = id
+                };
+                return NotFound(errorResponse);
             }
             return Ok(result);
         }
 
         [HttpPost]
-        public IActionResult CreateVilla([FromBody] VillaDTO villaDTO)
+        public IActionResult CreateVilla([FromBody] VillaCreateDTO villaCreateDTO)
         {
-            this._logger.LogInformation($"CreateVilla() invoked, with villaDto id: {villaDTO.Id}");
 
-            if (villaDTO is null)
+            if (villaCreateDTO is null)
             {
-                this._logger.LogError("villaDto is null");
-                return BadRequest(villaDTO);
+                this._logger.LogError("villaCreateDTO is null");
+                return BadRequest(villaCreateDTO);
             }
-            if (villaDTO.Id > 0)
-            {
-                this._logger.LogError("the id is provided is greater than 0.");
-                return StatusCode(StatusCodes.Status500InternalServerError);
-            }
-            var result = this._db.Villas.Add(new Villa() { Name = villaDTO.Name, Amenity = villaDTO.Amenity, Details = villaDTO.Details, ImageUrl = villaDTO.ImageUrl, Occupancy = villaDTO.Occupancy, Rate = villaDTO.Rate, Sqft = villaDTO.Sqft, CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now });
+
+            var model = new Villa() { Name = villaCreateDTO.Name, Amenity = villaCreateDTO.Amenity, Details = villaCreateDTO.Details, ImageUrl = villaCreateDTO.ImageUrl, Occupancy = villaCreateDTO.Occupancy, Rate = villaCreateDTO.Rate, Sqft = villaCreateDTO.Sqft, CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now };
+
+
+            var result = this._db.Villas.Add(model);
             this._db.SaveChanges();
-            return CreatedAtRoute("GetVilla", new { id = villaDTO.Id }, villaDTO);
+            return CreatedAtRoute("GetVilla", new { id = model.Id }, model);
+        }
+
+        [HttpDelete]
+        public IActionResult DeleteVilla(int id)
+        {
+            var existingVilla = this._db.Villas.Find(id);
+            if (existingVilla == null)
+            {
+                return NotFound();
+            }
+
+            this._db.Villas.Remove(existingVilla);
+            this._db.SaveChanges();
+            return NoContent();
+        }
+
+        [HttpPut]
+        public IActionResult UpdateVilla(int id, [FromBody]VillaUpdateDTO villaUpdateDTO)
+        {
+            var existingVilla = this._db.Villas.Find(id);
+            if (existingVilla == null)
+            {
+                return NotFound();
+            }
+            // Update the existing villa's properties
+            existingVilla.Name = villaUpdateDTO.Name;
+            existingVilla.Amenity = villaUpdateDTO.Amenity;
+            existingVilla.Details = villaUpdateDTO.Details;
+            existingVilla.ImageUrl = villaUpdateDTO.ImageUrl;
+            existingVilla.Occupancy = villaUpdateDTO.Occupancy;
+            existingVilla.Rate = villaUpdateDTO.Rate;
+            existingVilla.Sqft = villaUpdateDTO.Sqft;
+            existingVilla.UpdatedDate = DateTime.Now;
+
+            // Save changes to the database
+            this._db.Villas.Update(existingVilla);
+            this._db.SaveChanges();
+
+            return Ok(existingVilla);
         }
     }
 }
