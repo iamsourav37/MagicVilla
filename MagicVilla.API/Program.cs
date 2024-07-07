@@ -1,5 +1,6 @@
 using MagicVilla.API;
 using MagicVilla.API.Data;
+using MagicVilla.API.Repository;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -17,12 +18,19 @@ builder.Services.AddDbContext<VillaDBContext>(
     );
 
 builder.Services.AddAutoMapper(typeof(MappingConfig));
+builder.Services.AddScoped<IVillaRepository, VillaRepository>();
 
 //builder.Services.AddScoped<>
 
 
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+.AddNewtonsoftJson(options =>
+{
+    options.SerializerSettings.MissingMemberHandling = Newtonsoft.Json.MissingMemberHandling.Error;
+});
+
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

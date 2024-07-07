@@ -1,10 +1,9 @@
-﻿using AutoMapper;
-using MagicVilla.API.Data;
-using MagicVilla.API.Models;
+﻿using MagicVilla.API.Models;
 using MagicVilla.API.Models.DTO;
-using Microsoft.AspNetCore.Http;
+using MagicVilla.API.Repository;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Principal;
+using System.Net;
+using System.Security.Cryptography.Xml;
 
 namespace MagicVilla.API.Controllers
 {
@@ -12,115 +11,82 @@ namespace MagicVilla.API.Controllers
     [ApiController]
     public class VillaAPIController : ControllerBase
     {
-        private readonly ILogger<VillaAPIController> _logger;
-        private readonly VillaDBContext _db;
-        private readonly IMapper _mapper;
+        private readonly IVillaRepository _villaRepository;
+        private ApiResponse _apiResponse;
 
-        public VillaAPIController(ILogger<VillaAPIController> logger, VillaDBContext db, IMapper mapper)
+        public VillaAPIController(IVillaRepository villaRepository)
         {
-            this._logger = logger;
-            this._db = db;
-            this._mapper = mapper;
+
+            this._villaRepository = villaRepository;
+            this._apiResponse = new ApiResponse();
         }
 
 
         [HttpGet]
-        public IActionResult GetVillas()
+        public async Task<IActionResult> GetVillas()
         {
-            this._logger.LogInformation("GetVillas() invoked.");
-            var villas = this._db.Villas.ToList();
-            var villaDto = this._mapper.Map<IEnumerable<VillaDTO>>(villas);
-            return Ok(villaDto);
+            var villaDto = await this._villaRepository.GetAll();
+            this._apiResponse.StatusCode = HttpStatusCode.OK;
+            this._apiResponse.Result = villaDto;
+            return Ok(_apiResponse);
         }
 
         [HttpGet("{id}", Name = "GetVilla")]
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
-        public IActionResult GetVilla(int id)
+        public async Task<IActionResult> GetVilla(int id)
         {
-            this._logger.LogInformation($"GetVilla() invoked, with id: {id}");
-
-            var result = this._db.Villas.Where(e => e.Id == id).FirstOrDefault();
+            var result = await this._villaRepository.GetById(id);
             if (result is null)
             {
-                var errorResponse = new
-                {
-                    StatusCode = StatusCodes.Status404NotFound,
-                    Error = "Villa not found",
-                    VillaId = id
-                };
-                return NotFound(errorResponse);
+                this._apiResponse.StatusCode = HttpStatusCode.NotFound;
+                this._apiResponse.IsSuccess = false;
+                this._apiResponse.Errors.Add(new string("Villa not found"));
+                return NotFound(_apiResponse);
             }
-            var villaDto = _mapper.Map<VillaDTO>(result);
-            return Ok(villaDto);
+            this._apiResponse.StatusCode = HttpStatusCode.OK;
+            this._apiResponse.Result = result;
+            return Ok(_apiResponse);
         }
 
         [HttpPost]
-        public IActionResult CreateVilla([FromBody] VillaCreateDTO villaCreateDTO)
+        public async Task<IActionResult> CreateVilla([FromBody] VillaCreateDTO villaCreateDTO)
         {
 
             if (villaCreateDTO is null)
             {
-                this._logger.LogError("villaCreateDTO is null");
-                return BadRequest(villaCreateDTO);
+                this._apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                this._apiResponse.IsSuccess = false;
+                return BadRequest(_apiResponse);
             }
 
-
-            //var model = new Villa() { Name = villaCreateDTO.Name, Amenity = villaCreateDTO.Amenity, Details = villaCreateDTO.Details, ImageUrl = villaCreateDTO.ImageUrl, Occupancy = villaCreateDTO.Occupancy, Rate = villaCreateDTO.Rate, Sqft = villaCreateDTO.Sqft, CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now };
-
-
-            var model = _mapper.Map<Villa>(villaCreateDTO);
-
-            this._db.Villas.Add(model);
-            this._db.SaveChanges();
-            return CreatedAtRoute("GetVilla", new { id = model.Id }, model);
+            var result = await this._villaRepository.CreateVilla(villaCreateDTO);
+            this._apiResponse.StatusCode = HttpStatusCode.Created;
+            this._apiResponse.Result = result;
+            return CreatedAtAction(nameof(GetVilla), new { id = result.Id }, _apiResponse);
         }
 
         [HttpDelete]
-        public IActionResult DeleteVilla(int id)
+        public async Task<IActionResult> DeleteVilla(int id)
         {
-            var existingVilla = this._db.Villas.Find(id);
-            if (existingVilla == null)
+            var flag = await this._villaRepository.DeleteVilla(id);
+            if (!flag)
             {
-                return NotFound();
+                this._apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                this._apiResponse.IsSuccess = false;
+                return BadRequest(_apiResponse);
             }
-
-            this._db.Villas.Remove(existingVilla);
-            this._db.SaveChanges();
             return NoContent();
         }
 
         [HttpPut]
-        public IActionResult UpdateVilla(int id, [FromBody] VillaUpdateDTO villaUpdateDTO)
+        public async Task<IActionResult> UpdateVilla(int id, [FromBody] VillaUpdateDTO villaUpdateDTO)
         {
-            var existingVilla = this._db.Villas.Find(id);
-            if (existingVilla == null)
-            {
-                return NotFound();
-            }
-
-            this._mapper.Map(villaUpdateDTO, existingVilla);
-
-            // Update the timestamp
-            existingVilla.UpdatedDate = DateTime.Now;
-
-            // Update the existing villa's properties
-            //existingVilla.Name = villaUpdateDTO.Name;
-            //existingVilla.Amenity = villaUpdateDTO.Amenity;
-            //existingVilla.Details = villaUpdateDTO.Details;
-            //existingVilla.ImageUrl = villaUpdateDTO.ImageUrl;
-            //existingVilla.Occupancy = villaUpdateDTO.Occupancy;
-            //existingVilla.Rate = villaUpdateDTO.Rate;
-            //existingVilla.Sqft = villaUpdateDTO.Sqft;
-            //existingVilla.UpdatedDate = DateTime.Now;
-
-            // Save changes to the database
-            this._db.Villas.Update(existingVilla);
-            this._db.SaveChanges();
-
-            var villaDto = _mapper.Map<VillaDTO>(existingVilla);
-            return Ok(villaDto);
+            var villaDto = await this._villaRepository.UpdateVilla(id, villaUpdateDTO);
+            this._apiResponse.StatusCode = HttpStatusCode.OK;
+            this._apiResponse.Result = villaDto;
+            return Ok(_apiResponse);
         }
     }
 }
