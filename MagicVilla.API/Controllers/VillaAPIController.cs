@@ -1,4 +1,5 @@
-﻿using MagicVilla.API.Models;
+﻿using AutoMapper;
+using MagicVilla.API.Models;
 using MagicVilla.API.Models.DTO;
 using MagicVilla.API.Repository;
 using Microsoft.AspNetCore.Mvc;
@@ -12,12 +13,14 @@ namespace MagicVilla.API.Controllers
     public class VillaAPIController : ControllerBase
     {
         private readonly IVillaRepository _villaRepository;
+        private readonly IMapper _mapper;
         private ApiResponse _apiResponse;
 
-        public VillaAPIController(IVillaRepository villaRepository)
+        public VillaAPIController(IVillaRepository villaRepository, IMapper mapper)
         {
 
             this._villaRepository = villaRepository;
+            this._mapper = mapper;
             this._apiResponse = new ApiResponse();
         }
 
@@ -25,7 +28,7 @@ namespace MagicVilla.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetVillas()
         {
-            var villaDto = await this._villaRepository.GetAll();
+            var villaDto = await this._villaRepository.GetAllAsync();
             this._apiResponse.StatusCode = HttpStatusCode.OK;
             this._apiResponse.Result = villaDto;
             return Ok(_apiResponse);
@@ -37,7 +40,7 @@ namespace MagicVilla.API.Controllers
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetVilla(int id)
         {
-            var result = await this._villaRepository.GetById(id);
+            var result = await this._villaRepository.GetAsync(e => e.Id == id);
             if (result is null)
             {
                 this._apiResponse.StatusCode = HttpStatusCode.NotFound;
@@ -61,7 +64,8 @@ namespace MagicVilla.API.Controllers
                 return BadRequest(_apiResponse);
             }
 
-            var result = await this._villaRepository.CreateVilla(villaCreateDTO);
+            var villaModel = this._mapper.Map<Villa>(villaCreateDTO);
+            var result = await this._villaRepository.CreateAsync(villaModel);
             this._apiResponse.StatusCode = HttpStatusCode.Created;
             this._apiResponse.Result = result;
             return CreatedAtAction(nameof(GetVilla), new { id = result.Id }, _apiResponse);
@@ -70,7 +74,8 @@ namespace MagicVilla.API.Controllers
         [HttpDelete]
         public async Task<IActionResult> DeleteVilla(int id)
         {
-            var flag = await this._villaRepository.DeleteVilla(id);
+            var existingVilla = await this._villaRepository.GetAsync(e => e.Id == id);
+            var flag = await this._villaRepository.RemoveAsync(existingVilla);
             if (!flag)
             {
                 this._apiResponse.StatusCode = HttpStatusCode.BadRequest;
@@ -81,9 +86,9 @@ namespace MagicVilla.API.Controllers
         }
 
         [HttpPut]
-        public async Task<IActionResult> UpdateVilla(int id, [FromBody] VillaUpdateDTO villaUpdateDTO)
+        public async Task<IActionResult> UpdateVilla([FromBody] VillaUpdateDTO villaUpdateDTO)
         {
-            var villaDto = await this._villaRepository.UpdateVilla(id, villaUpdateDTO);
+            var villaDto = await this._villaRepository.UpdateAsync(villaUpdateDTO);
             this._apiResponse.StatusCode = HttpStatusCode.OK;
             this._apiResponse.Result = villaDto;
             return Ok(_apiResponse);

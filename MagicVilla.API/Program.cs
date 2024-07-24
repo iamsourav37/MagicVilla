@@ -24,11 +24,7 @@ builder.Services.AddScoped<IVillaRepository, VillaRepository>();
 
 
 
-builder.Services.AddControllers()
-.AddNewtonsoftJson(options =>
-{
-    options.SerializerSettings.MissingMemberHandling = Newtonsoft.Json.MissingMemberHandling.Error;
-});
+builder.Services.AddControllers();
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
